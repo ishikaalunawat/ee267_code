@@ -2,8 +2,7 @@
  * @file Class for handling mouse movement
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
-
+ * @version 2022/04/07
  */
 
 
@@ -14,12 +13,13 @@
  * @classdesc Class holding the state of a model and a viewer.
  *		This class accumulates the total mouse movement.
  *
- * @param {Number} dispParams display parameters
+ * @param  {DisplayParameters} dispParams display parameters
  */
 var StateController = function ( dispParams ) {
 
 	// Alias for accessing this from a closure
 	var _this = this;
+
 
 	// "state" object is a place where you store variables to render a scene.
 	//
@@ -29,7 +29,9 @@ var StateController = function ( dispParams ) {
 	// modelRotation: (x,y) rotations for models
 	// viewerPosition: (x,y,z) positions of a viewer
 	// viewerTarget: the position where a viewer is looking
-	// perspectiveMat switch between perspective
+	// lights: position and color of light sources
+	// material: various material properties
+	// attenuation: (kc, kl, kq) light attenuation parameters
 	this.state = {
 
 		clipNear: 1.0,
@@ -45,12 +47,47 @@ var StateController = function ( dispParams ) {
 
 		viewerTarget: new THREE.Vector3(),
 
-		perspectiveMat: true,
+		lights: {
 
-		topView: false,
+			pointLights: [
+				{
+
+					position: new THREE.Vector3( 0, 20, 30 ),
+
+					color: new THREE.Color( 'lightgreen' ).multiplyScalar( 1.3 ),
+
+				},
+			],
+
+			directionalLights: [
+				 {
+
+					direction: new THREE.Vector3( - 1, - 1, - 1 ),
+
+					color: new THREE.Color( 'skyblue' ).multiplyScalar( .3 ),
+
+				},
+			],
+
+			ambientLightColor: new THREE.Vector3( 1, 1, 1 ),
+
+		},
+
+		material: {
+
+			ambient: new THREE.Vector3( 0.3, 0.3, 0.3 ),
+
+			diffuse: new THREE.Vector3( 1.0, 1.0, 1.0 ),
+
+			specular: new THREE.Vector3( 1.0, 1.0, 1.0 ),
+
+			shininess: 120.0,
+
+		},
+
+		attenuation: new THREE.Vector3( 2.0, 0.0, 0.0 ),
 
 	};
-
 
 	// Constants for distinguishing which button is engaged.
 	const MODEL_TRANSFORM = 0;
@@ -59,7 +96,14 @@ var StateController = function ( dispParams ) {
 
 	const VIEWER_TARGET = 2;
 
-	const CLIPNEAR_CTRL = 3;
+	const POINT_LIGHT_CTRL = 3;
+
+	const DIRECTIONAL_LIGHT_CTRL = 4;
+
+	// index of which lights are under control
+	var pointLightIdx = 0;
+
+	var directionalLightIdx = 0;
 
 	// a variable to find which button is engaged
 	var controller = NaN;
@@ -71,17 +115,16 @@ var StateController = function ( dispParams ) {
 	var clickHold = false;
 
 
+	/* Functions */
 
-	/* Private Functions */
-
-	// Here, we define callback functions for event listeners set by jQuery.
+	// Here, we define callback functions for event listeners set by jQuery..
 	// For example, onClick function is called when the mouse is clicked
 	// somewhere in the window.
 	// See at the bottom of this class to see the usages.
 
 	// This function is called when the mouse click is engaged.
 	//
-	// INPUT
+	// input:
 	// x: the x position of the mouse cursor
 	// y: the x position of the mouse cursor
 	function onClick( x, y ) {
@@ -102,7 +145,7 @@ var StateController = function ( dispParams ) {
 
 	// This function is called when the mouse cursor moves.
 	//
-	// INPUT
+	// input:
 	// e: jQuery event
 	// x: the x position of the mouse cursor
 	// y: the x position of the mouse cursor
@@ -111,36 +154,133 @@ var StateController = function ( dispParams ) {
 		// Check the mouse is clicked. If not, do nothing.
 		if ( ! clickHold ) return;
 
+		var ctrlKey = e.metaKey // for Mac's command key
+			|| ( navigator.platform.toUpperCase().indexOf( "MAC" ) == - 1
+			&& e.ctrlKey );
+
 		var movement = computeMovement( x, y, previousPosition );
-
-
-		// Map mouse movements to matrix parameters
 
 		// Check if the model control button is clicked.
 		if ( controller === MODEL_TRANSFORM ) {
 
-			updateModelParams( e, movement );
+			// Check if the shift-key is pressed
+			if ( e.shiftKey && ! ctrlKey ) {
+
+				// XY translation
+				_this.state.modelTranslation.x += movement.x;
+
+				_this.state.modelTranslation.y += movement.y;
+
+			} else if ( ! e.shiftKey && ctrlKey ) {
+
+				// Z translation
+				_this.state.modelTranslation.z += movement.y;
+
+			} else {
+
+				// Rotation
+				_this.state.modelRotation.x -= movement.y;
+
+				_this.state.modelRotation.y += movement.x;
+
+			}
 
 		}
+
 
 		// Check if the viewer position control button is clicked.
 		if ( controller === VIEWER_POSITION ) {
 
-			updateViewPosition( e, movement );
+			// Check if the shift-key is pressed
+			if ( ! ctrlKey ) {
+
+				// XY translation
+				_this.state.viewerPosition.x += movement.x;
+
+				_this.state.viewerPosition.y += movement.y;
+
+			} else {
+
+				// Z translation
+				_this.state.viewerPosition.z += movement.y;
+
+			}
 
 		}
+
 
 		// Check if the viewer target control button is clicked.
 		if ( controller === VIEWER_TARGET ) {
 
-			updateViewTarget( e, movement );
+			// Check if the shift-key is pressed
+			if ( ! ctrlKey ) {
+
+				// XY translation
+				_this.state.viewerTarget.x += movement.x;
+
+				_this.state.viewerTarget.y += movement.y;
+
+			} else {
+
+				// Z translation
+				_this.state.viewerTarget.z += movement.y;
+
+			}
 
 		}
 
-		// Check if the clipping control button is clicked.
-		if ( controller === CLIPNEAR_CTRL ) {
 
-			updateProjectionParams( e, movement );
+		// Check if the point light control button is clicked.
+		if ( controller === POINT_LIGHT_CTRL ) {
+
+			var idx = pointLightIdx % _this.state.lights.pointLights.length;
+
+			if ( ! isNaN( idx ) ) {
+
+				var pointLight = _this.state.lights.pointLights[ idx ];
+
+				if ( ! ctrlKey ) {
+
+					// XY translation
+					pointLight.position.x += movement.x * 0.1;
+
+					pointLight.position.y += movement.y * 0.1;
+
+				} else {
+
+					// Z translation
+					pointLight.position.z += movement.y * 0.1;
+
+				}
+
+			}
+
+		}
+
+		// Check if the directional light control button is clicked.
+		if ( controller === DIRECTIONAL_LIGHT_CTRL ) {
+
+			var idx = directionalLightIdx % _this.state.lights.directionalLights.length;
+
+			if ( ! isNaN( idx ) ) {
+
+				var directionalLight = _this.state.lights.directionalLights[ idx ];
+
+				if ( ! ctrlKey ) {
+
+					// XY translation
+					directionalLight.direction.x -= movement.x * 0.1;
+
+					directionalLight.direction.y -= movement.y * 0.1;
+
+				} else {
+
+					// Z translation
+					directionalLight.direction.z -= movement.y * 0.1;
+
+				}
+
+			}
 
 		}
 
@@ -148,15 +288,6 @@ var StateController = function ( dispParams ) {
 
 	// A function to compute the mouse movement between frames.
 	// Do not forget to update previousPosition variable.
-	//
-	// INPUT
-	// x: x position of a mouse cursor in jQuery's coordinate
-	// y: y position of a mouse cursor in jQuery's coordinate
-	// previousPosition: the coordinate of the mouse pointer in jQuery's
-	//	coordinate at the previous frame as THREE.Vector2.
-	//
-	// OUTPUT
-	// the mouse movement between frames in Three's coordinate as THREE.Vector2
 	function computeMovement( x, y, previousPosition ) {
 
 		var mv = new THREE.Vector2(
@@ -167,124 +298,6 @@ var StateController = function ( dispParams ) {
 		return mv;
 
 	}
-
-	// A function to map mouse movements to high level model matrix parameters.
-	// This function should update "modelTranslation" and "modelRotation" in the
-	// "state" variable.
-	//
-	// INPUT
-	// e: jQuery event
-	// movement: the mouse movement computed by computeMovement() function
-	//
-	// NOTE (Important!):
-	// In JavaScript, if you want to access "this.state" from a closure, you need
-	// to make an alias for "this" and access "state" from this alias because
-	// "this" refers to the closure itself if you use "this" inside the closure.
-	// We have already defined the alias as "_this" at the top of this class.
-	// We follow this convention throughout homework.
-	function updateModelParams( e, movement ) {
-
-		var ctrlKey = e.metaKey // for Mac's command key
-			|| ( navigator.platform.toUpperCase().indexOf( "MAC" ) == - 1
-				&& e.ctrlKey );
-
-		// Check if the shift-key is pressed
-		if ( e.shiftKey && ! ctrlKey ) {
-
-			// XY translation
-			_this.state.modelTranslation.x += movement.x;
-
-			_this.state.modelTranslation.y += movement.y;
-
-		} else if ( ! e.shiftKey && ctrlKey ) {
-
-			// Z translation
-			_this.state.modelTranslation.z += movement.y;
-
-		} else {
-
-			// Rotation
-			_this.state.modelRotation.x -= movement.y;
-
-			_this.state.modelRotation.y += movement.x;
-
-		}
-
-	}
-
-
-	// A function to map mouse movements to the viewer position parameter.
-	// This function should update "viewerPosition" in the "state" variable.
-	//
-	// INPUT
-	// e: jQuery event
-	// movement: the mouse movement computed by computeMovement() function
-	function updateViewPosition( e, movement ) {
-
-		var ctrlKey = e.metaKey // for Mac's command key
-			|| ( navigator.platform.toUpperCase().indexOf( "MAC" ) == - 1
-				&& e.ctrlKey );
-
-		// Check if shift-key pressed
-		if ( ! ctrlKey ) {
-
-			// XY translation
-			_this.state.viewerPosition.x += movement.x;
-
-			_this.state.viewerPosition.y += movement.y;
-
-		} else {
-
-			// Z translation
-			_this.state.viewerPosition.z += movement.y;
-
-		}
-
-	}
-
-
-	// A function to map mouse movements to the viewer target parameter.
-	// This function should update "viewerTarget" in the "state" variable.
-	//
-	// INPUT
-	// e: jQuery event
-	// movement: the mouse movement computed by computeMovement() function
-	function updateViewTarget( e, movement ) {
-
-		var ctrlKey = e.metaKey // for Mac's command key
-			|| ( navigator.platform.toUpperCase().indexOf( "MAC" ) == - 1
-				&& e.ctrlKey );
-
-		// Check if shift-key pressed
-		if ( ! ctrlKey ) {
-
-			// XY translation
-			_this.state.viewerTarget.x += movement.x;
-
-			_this.state.viewerTarget.y += movement.y;
-
-		} else {
-
-			// Z translation
-			_this.state.viewerTarget.z += movement.y;
-
-		}
-
-	}
-
-
-	// A function to map mouse movements to the projection matrix parameters.
-	// This function should update "clipNear" in the "state" variable.
-	//
-	// INPUT
-	// e: jQuery event
-	// movement: the mouse movement computed by computeMovement() function
-	function updateProjectionParams( e, movement ) {
-
-		/* TODO (2.3.1) Implement Perspective Transform */
-
-	}
-
 
 	// Display the scene parameters in the browser
 	function display() {
@@ -314,6 +327,8 @@ var StateController = function ( dispParams ) {
 
 			onClick( e.pageX, e.pageY );
 
+			e.preventDefault();
+
 		},
 
 		"mousemove": function ( e ) {
@@ -324,13 +339,13 @@ var StateController = function ( dispParams ) {
 
 		},
 
-		"mouseout": function ( e ) {
+		"mouseout": function ( ) {
 
 			releaseClick();
 
 		},
 
-		"mouseup": function ( e ) {
+		"mouseup": function ( ) {
 
 			releaseClick();
 
@@ -349,120 +364,154 @@ var StateController = function ( dispParams ) {
 
 		$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
 
-		$( "#clipNearBtn" ).css( "background-color", cardinalColor );
+		$( "#pointLightCtrlBtn" ).css( "background-color", cardinalColor );
+
+		$( "#directionalLightCtrlBtn" ).css( "background-color", cardinalColor );
 
 	} );
 
 
 	$( "#viewerPositionBtn" ).click( function () {
 
-		if ( ! _this.state.topView ) {
+		controller = VIEWER_POSITION;
 
-			controller = VIEWER_POSITION;
+		$( "#modelBtn" ).css( "background-color", cardinalColor );
 
-			$( "#modelBtn" ).css( "background-color", cardinalColor );
+		$( "#viewerPositionBtn" ).css( "background-color", "teal" );
 
-			$( "#viewerPositionBtn" ).css( "background-color", "teal" );
+		$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
 
-			$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
+		$( "#pointLightCtrlBtn" ).css( "background-color", cardinalColor );
 
-			$( "#clipNearBtn" ).css( "background-color", cardinalColor );
-
-		}
+		$( "#directionalLightCtrlBtn" ).css( "background-color", cardinalColor );
 
 	} );
 
 
 	$( "#viewerTargetBtn" ).click( function () {
 
-		if ( ! _this.state.topView ) {
+		controller = VIEWER_TARGET;
 
-			controller = VIEWER_TARGET;
+		$( "#modelBtn" ).css( "background-color", cardinalColor );
 
-			$( "#modelBtn" ).css( "background-color", cardinalColor );
+		$( "#viewerPositionBtn" ).css( "background-color", cardinalColor );
 
-			$( "#viewerPositionBtn" ).css( "background-color", cardinalColor );
+		$( "#viewerTargetBtn" ).css( "background-color", "teal" );
 
-			$( "#viewerTargetBtn" ).css( "background-color", "teal" );
+		$( "#pointLightCtrlBtn" ).css( "background-color", cardinalColor );
 
-			$( "#clipNearBtn" ).css( "background-color", cardinalColor );
-
-		}
-
-	} );
-
-	$( "#clipNearBtn" ).click( function () {
-
-		if ( ! _this.state.topView ) {
-
-			controller = CLIPNEAR_CTRL;
-
-			$( "#modelBtn" ).css( "background-color", cardinalColor );
-
-			$( "#viewerPositionBtn" ).css( "background-color", cardinalColor );
-
-			$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
-
-			$( "#clipNearBtn" ).css( "background-color", "teal" );
-
-		}
+		$( "#directionalLightCtrlBtn" ).css( "background-color", cardinalColor );
 
 	} );
 
 
-	$( "#projectionMatBtn" ).click( function () {
+	$( "#pointLightCtrlBtn" ).click( function ( ) {
 
-		_this.state.perspectiveMat = ! _this.state.perspectiveMat;
+		controller = POINT_LIGHT_CTRL;
 
-		if ( _this.state.perspectiveMat ) {
+		pointLightIdx += 1;
 
-			$( "#projectionMatBtn" ).html( "Perspective Matrix" );
+		$( "#modelBtn" ).css( "background-color", cardinalColor );
 
-		} else {
+		$( "#viewerPositionBtn" ).css( "background-color", cardinalColor );
 
-			$( "#projectionMatBtn" ).html( "Orthographic Matrix" );
+		$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
 
-		}
+		$( "#pointLightCtrlBtn" ).css( "background-color", "teal" );
+
+		$( "#directionalLightCtrlBtn" ).css( "background-color", cardinalColor );
+
+	} );
+
+
+	$( "#directionalLightCtrlBtn" ).click( function ( ) {
+
+		controller = DIRECTIONAL_LIGHT_CTRL;
+
+		directionalLightIdx += 1;
+
+		$( "#modelBtn" ).css( "background-color", cardinalColor );
+
+		$( "#viewerPositionBtn" ).css( "background-color", cardinalColor );
+
+		$( "#viewerTargetBtn" ).css( "background-color", cardinalColor );
+
+		$( "#pointLightCtrlBtn" ).css( "background-color", cardinalColor );
+
+		$( "#directionalLightCtrlBtn" ).css( "background-color", "teal" );
 
 	} );
 
-	// Scene switching system
-	$( "html" ).keydown( function ( e ) {
 
-		/* Change the scene if space is pressed. */
-		if ( e.which === 32 ) {
+	// By clicking the point light button, a point light source is added to the
+	// scene at the position specified. You can manipulate the position later
+	// on based on the mouse movement.
+	//
+	// The color of the added point light is randomly chosen.
+	var pLightPos = [
+		new THREE.Vector3( 100, 70, 100 ),
+		new THREE.Vector3( - 100, 70, 100 ),
+		new THREE.Vector3( - 100, 70, - 100 ),
+		new THREE.Vector3( 100, 70, - 100 ),
+		new THREE.Vector3( 100, - 30, 100 ),
+		new THREE.Vector3( - 100, - 30, 100 ),
+		new THREE.Vector3( - 100, - 30, - 100 ),
+		new THREE.Vector3( 100, - 30, - 100 ),
+	];
 
-			_this.state.topView = ! _this.state.topView;
+	$( "#addPointLightBtn" ).click( function ( ) {
 
-			if ( _this.state.topView ) {
+		var idx = _this.state.lights.pointLights.length - 1;
 
-				$( "#modelBtn" ).css( "background-color", "teal" );
+		var color = Math.random() * 0xffffff;
 
-				$( "#viewerPositionBtn" ).css( { "background-color": cardinalColor, "opacity": 0.1 } );
+		var pointLight = {
 
-				$( "#viewerTargetBtn" ).css( { "background-color": cardinalColor, "opacity": 0.1 } );
+			position: pLightPos[ idx % pLightPos.length ],
 
-				$( "#clipNearBtn" ).css( { "background-color": cardinalColor, "opacity": 0.1 } );
+			color: new THREE.Color( color ),
 
-				$( "#projectionMatBtn" ).css( { "background-color": cardinalColor, "opacity": 0.1 } );
+		};
 
-				controller = MODEL_TRANSFORM;
-
-			} else {
-
-				$( "#viewerPositionBtn" ).css( "opacity", 1.0 );
-
-				$( "#viewerTargetBtn" ).css( "opacity", 1.0 );
-
-				$( "#clipNearBtn" ).css( "opacity", 1.0 );
-
-				$( "#projectionMatBtn" ).css( "opacity", 1.0 );
-
-			}
-
-		}
+		_this.state.lights.pointLights.push( pointLight );
 
 	} );
+
+
+	// By clicking the directional light button, a directional light source is
+	// added to the scene at the position specified. Here, we define the
+	// direction as the direction to which the light propagates.
+	//
+	// The color of the added directional light is randomly chosen.
+	var dLightDir = [
+		new THREE.Vector3( - 1, - 1, - 1 ),
+		new THREE.Vector3( 1, - 1, - 1 ),
+		new THREE.Vector3( 1, - 1, 1 ),
+		new THREE.Vector3( - 1, - 1, 1 ),
+		new THREE.Vector3( - 1, 1, - 1 ),
+		new THREE.Vector3( 1, 1, - 1 ),
+		new THREE.Vector3( 1, 1, 1 ),
+		new THREE.Vector3( - 1, 1, 1 ),
+	];
+
+	$( "#addDirectionalLightBtn" ).click( function ( ) {
+
+		var idx = _this.state.lights.directionalLights.length;
+
+		var color = Math.random() * 0xffffff;
+
+		var directionalLight = {
+
+			direction: dLightDir[ idx % dLightDir.length ],
+
+			color: new THREE.Color( color ).multiplyScalar( .3 ),
+
+		};
+
+		_this.state.lights.directionalLights.push( directionalLight );
+
+	} );
+
 
 
 	/* Expose as public functions */
@@ -474,14 +523,6 @@ var StateController = function ( dispParams ) {
 	this.onMove = onMove;
 
 	this.computeMovement = computeMovement;
-
-	this.updateModelParams = updateModelParams;
-
-	this.updateViewPosition = updateViewPosition;
-
-	this.updateViewTarget = updateViewTarget;
-
-	this.updateProjectionParams = updateProjectionParams;
 
 	this.display = display;
 

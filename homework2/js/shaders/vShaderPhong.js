@@ -1,36 +1,37 @@
 /**
- * @file Pass-through vertex shader
+ * @file Phong vertex shader only with point lights
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
-
+ * @version 2021/04/01
  */
 
-var shaderID = "vShader";
+/* TODO (2.2.1) */
+
+var shaderID = "vShaderPhong";
 
 var shader = document.createTextNode( `
-/***
+/**
  * varying qualifier is used for passing variables from a vertex shader
  * to a fragment shader. In the fragment shader, these variables are
  * interpolated between neighboring vertexes.
  */
-varying vec3 vColor;
+varying vec3 normalCam; // Normal in view coordinate
+varying vec3 fragPosCam; // Vertex/Fragment position in view cooridnate
 
-uniform mat4 projectionMat;
 uniform mat4 modelViewMat;
+uniform mat4 projectionMat;
+uniform mat3 normalMat;
 
 attribute vec3 position;
-attribute vec3 color;
+attribute vec3 normal;
 
 void main() {
 
-    vColor = color;
-
-    gl_Position =
-        projectionMat * modelViewMat * vec4( position, 1.0 );
+	gl_Position = projectionMat * modelViewMat * vec4( position, 1.0 );
 
 }
 ` );
+
 
 var shaderNode = document.createElement( "script" );
 

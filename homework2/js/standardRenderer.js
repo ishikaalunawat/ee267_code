@@ -2,7 +2,7 @@
  * @file Class for a standard renderer
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
+ * @version 2022/04/07
  */
 
 
@@ -49,6 +49,16 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 
 	var scene = new THREE.Scene();
 
+	var numPointLights = - 1;
+
+	var numDirectionalLights = - 1;
+
+	// This sphere geometry for visualizing the position of point light source.
+	// It will be rendered through Three's built-in shader along with the
+	// and grid object.
+	var sphere = new THREE.SphereGeometry( 1, 15, 10 );
+
+	var pLightSpheres = [];
 
 	// add an axis object in the scene
 	var axisObject = new THREE.AxesHelper( 100 );
@@ -57,14 +67,12 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 
 	scene.add( axisObject );
 
-
 	// add a grid object in the scene
 	var grid = new THREE.GridHelper( 1000, 30, "white", "white" );
 
 	grid.position.set( 0, - 50, 0 );
 
 	scene.add( grid );
-
 
 	// set the scene's background
 	scene.background = new THREE.Color( "gray" );
@@ -78,17 +86,55 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 
 			uniforms: {
 
+				viewMat: { value: new THREE.Matrix4() },
+
 				projectionMat: { value: new THREE.Matrix4() },
 
 				modelViewMat: { value: new THREE.Matrix4() },
 
+				normalMat: { value: new THREE.Matrix3() },
+
+				material: { value: {
+
+					ambient: new THREE.Vector3(),
+
+					diffuse: new THREE.Vector3(),
+
+					specular: new THREE.Vector3(),
+
+					shininess: new THREE.Vector3(),
+
+				}, },
+
+				ambientLightColor: { value: new THREE.Vector3() },
+
+				pointLights: { value: [], properties: {
+
+					position: new THREE.Vector3(),
+
+					color: new THREE.Color(),
+
+				}, },
+
+				directionalLights: { value: [], properties: {
+
+					direction: new THREE.Vector3(),
+
+					color: new THREE.Color(),
+
+				}, },
+
+				attenuation: { value: new THREE.Vector3() },
+
 			},
 
-			wireframe: true,
+			vertexShader: replaceNumLights( teapots[ i ].vertexShader, 0, 0 ),
 
-			vertexShader: teapots[ i ].vertexShader,
+			fragmentShader: replaceNumLights( teapots[ i ].fragmentShader, 0, 0 ),
 
-			fragmentShader: teapots[ i ].fragmentShader,
+			side: THREE.DoubleSide,
+
+			shadowSide: THREE.DoubleSide,
 
 		} );
 
@@ -101,10 +147,20 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 	}
 
 
+
 	/* Functions */
 
-	// a function to update all uniforms of Teapot
-	function updateUniforms( modelMat, viewMat, projectionMat ) {
+	// Update all of the uniforms that are going to be parsed to the GLSL shaders
+	//
+	// INPUT
+	// state: state object of StateController
+	// modelMat: model matrix
+	// viewMat: view matrix
+	// projectionMat: projection matrix
+	function updateUniforms(
+		state, modelMat, viewMat, projectionMat ) {
+
+		var lights = state.lights;
 
 		for ( var i = 0; i < teapots.length; i ++ ) {
 
@@ -118,40 +174,122 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 			var modelViewMat =
 				new THREE.Matrix4().multiplyMatrices( viewMat, _modelMat );
 
-			// Attach the computed model/view/projection matrices to the
-			// shaders.
+			var normalMat = new THREE.Matrix3().getNormalMatrix( modelViewMat );
+
+			// Attach the computed model/view/projection matrices to the shaders.
+			meshes[ i ].material.uniforms.viewMat.value = viewMat;
+
 			meshes[ i ].material.uniforms.modelViewMat.value = modelViewMat;
+
+			meshes[ i ].material.uniforms.normalMat.value = normalMat;
 
 			meshes[ i ].material.uniforms.projectionMat.value = projectionMat;
 
+			meshes[ i ].material.uniforms.pointLights.value = lights.pointLights;
+
+			meshes[ i ].material.uniforms.
+				directionalLights.value = lights.directionalLights;
+
+			meshes[ i ].material.uniforms.
+				ambientLightColor.value = lights.ambientLightColor;
+
+			meshes[ i ].material.uniforms.attenuation.value = state.attenuation;
+
+			meshes[ i ].material.uniforms.material.value = state.material;
+
+
+			// Update the shaders based on the number of existing lights.
+			// By setting material.needsUpdate to be true, the updated shaders
+			// are recompiled.
+			if ( numPointLights !== lights.pointLights.length
+				|| numDirectionalLights !== lights.directionalLights.length ) {
+
+				meshes[ i ].material.vertexShader =
+					replaceNumLights( teapots[ i ].vertexShader,
+						lights.pointLights.length, lights.directionalLights.length );
+
+				meshes[ i ].material.fragmentShader =
+					replaceNumLights( teapots[ i ].fragmentShader,
+						lights.pointLights.length, lights.directionalLights.length );
+
+				meshes[ i ].material.needsUpdate = true;
+
+			}
+
 		}
 
-		// This part is for rendering the axis and grid objects with THREE's
-		// rendering pipeline by using the view and projection matrices
-		// computed by ourselves. This part is not used for rendering teapots.
-		// Please ignore this part for doing homework.
+		numPointLights = lights.pointLights.length;
+
+		numDirectionalLights = lights.directionalLights.length;
+
+		// This part is for rendering the axis, point lights and grid objects
+		// with THREE's rendering pipeline by using the view and projection
+		// matrices computed by ourselves. This part is not used for rendering
+		// teapots. Please ignore this part for doing homework.
 		camera.matrixWorld.copy( viewMat ).invert();
 
 		camera.projectionMatrix.copy( projectionMat );
+
+		var pointLights = lights.pointLights;
+
+		if ( pLightSpheres.length !== pointLights.length ) {
+
+			for ( var idx = pLightSpheres.length;
+				idx < pointLights.length; idx ++ ) {
+
+				var pLight = pointLights[ idx ];
+
+				var sphereMesh = new THREE.Mesh( sphere,
+					new THREE.MeshBasicMaterial( { color: pLight.color } ) );
+
+				pLightSpheres.push( sphereMesh );
+
+				scene.add( sphereMesh );
+
+			}
+
+		}
+
+		for ( var idx = 0; idx < pLightSpheres.length; idx ++ ) {
+
+			var pos = pointLights[ idx ].position;
+
+			pLightSpheres[ idx ].position.set( pos.x, pos.y, pos.z );
+
+		}
+
+	}
+
+	// Replace NUM_POINT_LIGHTS and NUM_DIR_LIGHTS in the shaders to the number
+	// of existing lights respectively. By doing this, we can define the size
+	// of an array of struct (e.g. pointLights[NUM_POINT_LIGHTS]) in the
+	// shaders and can avoid using the uniforms in the main function for
+	// compilation. After replacing the variables to hard-coded numbers, the
+	// shaders have to be recompiled.
+	function replaceNumLights( shader, num_plights, num_dlights ) {
+
+		return shader.replace( /NUM_POINT_LIGHTS/g, num_plights )
+		 .replace( /NUM_DIR_LIGHTS/g, num_dlights );
 
 	}
 
 	// Perform rendering after updating uniforms
 	//
 	// INPUT
+	// state: state object of StateController
 	// modelMat: model matrix
 	// viewMat: view matrix
 	// projectionMat: projection matrix
-	function render( modelMat, viewMat, projectionMat ) {
+	function render(
+		state, modelMat, viewMat, projectionMat ) {
 
-		updateUniforms( modelMat, viewMat, projectionMat );
+		updateUniforms( state, modelMat, viewMat, projectionMat );
 
 		// Render the scene!
 		// This part performs all renderings scheduled above on GPU.
 		webglRenderer.render( scene, camera );
 
 	}
-
 
 
 	/* Event listeners */
@@ -168,6 +306,8 @@ var StandardRenderer = function ( webglRenderer, teapots, dispParams ) {
 	/* Expose as public functions */
 
 	this.updateUniforms = updateUniforms;
+
+	this.replaceNumLights = replaceNumLights;
 
 	this.render = render;
 

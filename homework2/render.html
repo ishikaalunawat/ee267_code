@@ -20,8 +20,10 @@
 				<div id="modelBtn">Model Control</div>
 				<div id="viewerPositionBtn">Viewer Position</div>
 				<div id="viewerTargetBtn">Viewer Target</div>
-				<div id="projectionMatBtn">Perspective Matrix</div>
-				<div id="clipNearBtn">Near Clipping</div>
+				<div id="addPointLightBtn">Add Point Light</div>
+				<div id="addDirectionalLightBtn">Add Dir. Light</div>
+				<div id="pointLightCtrlBtn">Point Light Control</div>
+				<div id="directionalLightCtrlBtn">Dir. Light Control</div>
 				<div id="positionVal"></div>
 
 			</div>
@@ -39,8 +41,20 @@
 		<script src="js/libs/TeapotGeometry.js"></script>
 
 		<!-- shaders -->
-		<script src="js/shaders/vShader.js" type="text/javascript"></script>
-		<script src="js/shaders/fShader.js" type="text/javascript"></script>
+		<script src="js/shaders/vShaderGouraudAmbient.js" type="text/javascript"></script>
+		<script src="js/shaders/fShaderGouraudAmbient.js" type="text/javascript"></script>
+
+		<script src="js/shaders/vShaderGouraudDiffuse.js" type="text/javascript"></script>
+		<script src="js/shaders/fShaderGouraudDiffuse.js" type="text/javascript"></script>
+
+		<script src="js/shaders/vShaderGouraud.js" type="text/javascript"></script>
+		<script src="js/shaders/fShaderGouraud.js" type="text/javascript"></script>
+
+		<script src="js/shaders/vShaderPhong.js" type="text/javascript"></script>
+		<script src="js/shaders/fShaderPhong.js" type="text/javascript"></script>
+
+		<script src="js/shaders/vShaderMultiPhong.js" type="text/javascript"></script>
+		<script src="js/shaders/fShaderMultiPhong.js" type="text/javascript"></script>
 
 		<!-- some utility functions -->
 		<script src="js/utils.js" type="text/javascript"></script>

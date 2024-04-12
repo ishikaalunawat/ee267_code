@@ -27,6 +27,7 @@ p {
     cursor: grabbing;
 }
 
+
 .btnWrapper {
     position: absolute;
     width: 0px;
@@ -36,8 +37,9 @@ p {
 }
 
 
-#modelBtn, #viewerPositionBtn, #viewerTargetBtn, #projectionMatBtn,
-#clipNearBtn {
+#modelBtn, #viewerPositionBtn, #viewerTargetBtn,
+#addPointLightBtn, #addDirectionalLightBtn,
+#pointLightCtrlBtn, #directionalLightCtrlBtn {
     position: absolute;
     background-color: rgb( 140, 21, 21 );
     -webkit-border-radius: 28;
@@ -82,24 +84,43 @@ p {
 }
 
 
-#clipNearBtn {
+#pointLightCtrlBtn {
     top: 10px;
     left: 385px;
-}
-
-
-#projectionMatBtn {
-    top: 10px;
-    left: 480px;
     width: 90px;
 }
 
+
+#directionalLightCtrlBtn {
+    top: 10px;
+    left: 508px;
+    width: 90px;
+}
+
+
+#viewerTargetBtn {
+    top: 10px;
+    left: 290px;
+}
+
+
+#addPointLightBtn {
+    top: 60px;
+    left: 130px;
+    width: 80px;
+}
+
+#addDirectionalLightBtn {
+    top: 60px;
+    left: 245px;
+    width: 80px;
+}
 
 #positionVal {
     position: absolute;
     font-family: Courier New;
     top: 0px;
-    left: 610px;
+    left: 650px;
     width: 400px;
     color: #ffffff;
     font-size: 15px;

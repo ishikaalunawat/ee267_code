@@ -1,11 +1,10 @@
-
 /**
  * @file functions to compute model/view/projection matrices
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
-
+ * @version 2022/04/07
  */
+
 
 /**
  * MVPmat
@@ -21,28 +20,17 @@ var MVPmat = function ( dispParams ) {
 	var _this = this;
 
 
-	// A model matrix
 	this.modelMat = new THREE.Matrix4();
 
-	// A view matrix
 	this.viewMat = new THREE.Matrix4();
 
-	// A projection matrix
 	this.projectionMat = new THREE.Matrix4();
 
 
-	var topViewMat = new THREE.Matrix4().set(
-		1, 0, 0, 0,
-		0, 0, - 1, 0,
-		0, 1, 0, - 1500,
-		0, 0, 0, 1 );
 
 	/* Functions */
 
 	// A function to compute a model matrix based on the current state
-	//
-	// INPUT
-	// state: state of StateController
 	function computeModelTransform( state ) {
 
 		var modelTranslation = state.modelTranslation;
@@ -62,21 +50,15 @@ var MVPmat = function ( dispParams ) {
 				modelRotation.y * THREE.Math.DEG2RAD );
 
 		var modelMatrix = new THREE.Matrix4().
-			premultiply( rotationMatY ).
-			premultiply( rotationMatX ).
-			premultiply( translationMat );
+				premultiply( rotationMatY ).
+				premultiply( rotationMatX ).
+				premultiply( translationMat );
 
 		return modelMatrix;
 
 	}
 
 	// A function to compute a view matrix based on the current state
-	//
-	// NOTE
-	// Do not use lookAt().
-	//
-	// INPUT
-	// state: state of StateController
 	function computeViewTransform( state ) {
 
 		var upVector = new THREE.Vector3( 0, 1, 0 );
@@ -107,118 +89,42 @@ var MVPmat = function ( dispParams ) {
 
 	// A function to compute a perspective projection matrix based on the
 	// current state
-	//
-	// NOTE
-	// Do not use makePerspective().
-	//
-	// INPUT
-	// Notations for the input is the same as in the class.
 	function computePerspectiveTransform(
 		left, right, top, bottom, clipNear, clipFar ) {
 
-		var p11 = 2 * clipNear / ( right - left );
-
-		var p13 = ( right + left ) / ( right - left );
-
-		var p22 = 2 * clipNear / ( top - bottom );
-
-		var p23 = ( top + bottom ) / ( top - bottom );
-
-		var p33 = - ( clipFar + clipNear ) / ( clipFar - clipNear );
-
-		var p34 = - 2 * clipFar * clipNear / ( clipFar - clipNear );
-
-		var p43 = - 1;
-
-
-		return new THREE.Matrix4().set(
-			p11, 0, p13, 0,
-			0, p22, p23, 0,
-			0, 0, p33, p34,
-			0, 0, p43, 0 );
+		return new THREE.Matrix4().
+			makePerspective( left, right, top, bottom, clipNear, clipFar );
 
 	}
 
-	// A function to compute a orthographic projection matrix based on the
-	// current state
-	//
-	// NOTE
-	// Do not use makeOrthographic().
+	// Update the model/view/projection matrices based on the current state
+	// This function is called in every frame.
 	//
 	// INPUT
-	// Notations for the input is the same as in the class.
-	function computeOrthographicTransform(
-		left, right, top, bottom, clipNear, clipFar ) {
-
-		/* TODO (2.3.2) Implement Orthographic Projection */
-
-		return new THREE.Matrix4();
-
-	}
-
-	// Update the model/view/projection matrices
-	// This function is called in every frame (animate() function in render.js).
+	// state: the state object of StateController
 	function update( state ) {
 
 		// Compute model matrix
 		this.modelMat.copy( computeModelTransform( state ) );
 
-		// Use the hard-coded view and projection matrices for top view
-		if ( state.topView ) {
+		// Compute view matrix
+		this.viewMat.copy( computeViewTransform( state ) );
 
-			this.viewMat.copy( topViewMat );
+		// Compute projection matrix
+		var right = ( dispParams.canvasWidth * dispParams.pixelPitch / 2 )
+			* ( state.clipNear / dispParams.distanceScreenViewer );
 
-			var right = ( dispParams.canvasWidth * dispParams.pixelPitch / 2 )
-				* ( state.clipNear / dispParams.distanceScreenViewer );
+		var left = - right;
 
-			var left = - right;
+		var top = ( dispParams.canvasHeight * dispParams.pixelPitch / 2 )
+			* ( state.clipNear / dispParams.distanceScreenViewer );
 
-			var top = ( dispParams.canvasHeight * dispParams.pixelPitch / 2 )
-				* ( state.clipNear / dispParams.distanceScreenViewer );
+		var bottom = - top;
 
-			var bottom = - top;
+		this.projectionMat.copy( computePerspectiveTransform(
+			left, right, top, bottom, state.clipNear, state.clipFar ) );
 
-			this.projectionMat.makePerspective( left, right, top, bottom, 1, 10000 );
-
-		} else {
-
-			// Compute view matrix
-			this.viewMat.copy( computeViewTransform( state ) );
-
-			// Compute projection matrix
-			if ( state.perspectiveMat ) {
-
-				var right = ( dispParams.canvasWidth * dispParams.pixelPitch / 2 )
-				* ( state.clipNear / dispParams.distanceScreenViewer );
-
-				var left = - right;
-
-				var top = ( dispParams.canvasHeight * dispParams.pixelPitch / 2 )
-				* ( state.clipNear / dispParams.distanceScreenViewer );
-
-				var bottom = - top;
-
-				this.projectionMat.copy( computePerspectiveTransform(
-					left, right, top, bottom, state.clipNear, state.clipFar ) );
-
-			} else {
-
-				var right = dispParams.canvasWidth * dispParams.pixelPitch / 2;
-
-				var left = - right;
-
-				var top = dispParams.canvasHeight * dispParams.pixelPitch / 2;
-
-				var bottom = - top;
-
-				this.projectionMat.copy( computeOrthographicTransform(
-					left, right, top, bottom, state.clipNear, state.clipFar ) );
-
-			}
-
-		}
-
-	}
+	};
 
 
 
@@ -229,8 +135,6 @@ var MVPmat = function ( dispParams ) {
 	this.computeViewTransform = computeViewTransform;
 
 	this.computePerspectiveTransform = computePerspectiveTransform;
-
-	this.computeOrthographicTransform = computeOrthographicTransform;
 
 	this.update = update;
 

@@ -2,8 +2,7 @@
  * @file Class for display parameters
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
-
+ * @version 2022/04/07
  */
 
 /**
@@ -37,6 +36,7 @@ var DisplayParameters = function ( distSceenViewer, screenDiagonal ) {
 
 
 	/* Functions */
+
 	function computePixelPitch() {
 
 		// Conversion factor from inch to mm
@@ -69,7 +69,6 @@ var DisplayParameters = function ( distSceenViewer, screenDiagonal ) {
 		_this.canvasWidth = window.innerWidth;
 
 	} );
-
 
 
 	/* Expose as public functions */

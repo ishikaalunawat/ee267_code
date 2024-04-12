@@ -1,6 +1,6 @@
 /**
  * @file EE267 Virtual Reality
- * Homework 1 - Getting Started with WebGL and Transformations
+ * Homework 2 - Lighting, Shading and GLSL
  *
  * In our homework, we heavily rely on THREE.js library for rendering.
  * THREE.js is a wonderful library to render a complicated scene without
@@ -11,13 +11,15 @@
  * behind the rendering pipeline!
  *
  * Instructor: Gordon Wetzstein <gordon.wetzstein@stanford.edu>
+ *             Suyeon Choi <suyeon@stanford.edu>
+ *             Manu Gopakumar <manugopa@stanford.edu>
  *
  * The previous C++/OpenGL version was developed by Robert Konrad in 2016, and
  * the JavaScript/WebGL version was developed by Hayato Ikoma in 2017.
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/03/31
- * This version uses Three.js (r139), stats.js (r17) and jQuery (3.2.1).
+ * @version 2022/04/07
+ * This version uses Three.js (r127), stats.js (r17) and jQuery (3.2.1).
  */
 
 // Set up display parameters.
@@ -63,28 +65,47 @@ $( ".renderCanvas" ).prepend( webglRenderer.domElement );
 webglRenderer.setSize( dispParams.canvasWidth, dispParams.canvasHeight );
 
 
-// Define three teapots
+// add teapots with different shaders
 var teapots = [];
 
-var leftTeapot = new Teapot(
-	new THREE.Vector3( - 50, 0, - 150 ),
-	$( "#vShader" ).text(), $( "#fShader" ).text() );
 
-teapots.push( leftTeapot );
+// Teapot with ambient shader
+var gouraudAmbientTeapot = new Teapot( new THREE.Vector3( - 100, 0, 0 ),
+	$( "#vShaderGouraudAmbient" ).text(),
+	$( "#fShaderGouraudAmbient" ).text() );
 
-
-var centerTeapot = new Teapot(
-	new THREE.Vector3( 0, 0, 0 ),
-	$( "#vShader" ).text(), $( "#fShader" ).text() );
-
-teapots.push( centerTeapot );
+teapots.push( gouraudAmbientTeapot );
 
 
-var rightTeapot = new Teapot(
-	new THREE.Vector3( 50, 0, 150 ),
-	$( "#vShader" ).text(), $( "#fShader" ).text() );
+// Teapot with Gouraud shader
+var gouraudDiffuseTeapot = new Teapot( new THREE.Vector3( - 50, 0, 0 ),
+	$( "#vShaderGouraudDiffuse" ).text(),
+	$( "#fShaderGouraudDiffuse" ).text() );
 
-teapots.push( rightTeapot );
+teapots.push( gouraudDiffuseTeapot );
+
+
+// Teapot with Gouraud shader
+var gouraudTeapot = new Teapot( new THREE.Vector3( 0, 0, 0 ),
+	$( "#vShaderGouraud" ).text(),
+	$( "#fShaderGouraud" ).text() );
+
+teapots.push( gouraudTeapot );
+
+// Teapot with Phong shader
+var phongTeapot = new Teapot( new THREE.Vector3( 50, 0, 0 ),
+	$( "#vShaderPhong" ).text(),
+	$( "#fShaderPhong" ).text() );
+
+teapots.push( phongTeapot );
+
+
+// Teapot with multi-light Phong shader
+var multiPhongTeapot = new Teapot( new THREE.Vector3( 100, 0, 0 ),
+	$( "#vShaderMultiPhong" ).text(),
+	$( "#fShaderMultiPhong" ).text() );
+
+teapots.push( multiPhongTeapot );
 
 
 // Create an instance of our StateCoontroller class.
@@ -136,8 +157,7 @@ function animate() {
 	// update model/view/projection matrices
 	mat.update( sc.state );
 
-	// Render with the current model/view/projection matrices
-	renderer.render( mat.modelMat, mat.viewMat, mat.projectionMat );
+	renderer.render( sc.state, mat.modelMat, mat.viewMat, mat.projectionMat );
 
 	// End performance monitoring
 	stats.end();
