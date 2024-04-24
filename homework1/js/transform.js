@@ -46,8 +46,13 @@ var MVPmat = function ( dispParams ) {
 	function computeModelTransform( state ) {
 
 		/* TODO (2.1.1.3) Matrix Update / (2.1.2) Model Rotation  */
+		var translation = new THREE.Matrix4().makeTranslation(state.modelTranslation.x, state.modelTranslation.y, state.modelTranslation.z);
+		var rotation_y = new THREE.Matrix4().makeRotationY(state.modelRotation.y * Math.PI / 180);
+		var rotation_x = new THREE.Matrix4().makeRotationX(state.modelRotation.x * Math.PI / 180);
 
-		return new THREE.Matrix4();
+		var transform = new THREE.Matrix4().multiplyMatrices(rotation_x, rotation_y);
+		transform = transform.multiplyMatrices(translation, transform);
+		return transform;
 
 	}
 
@@ -61,12 +66,28 @@ var MVPmat = function ( dispParams ) {
 	function computeViewTransform( state ) {
 
 		/* TODO (2.2.3) Implement View Transform */
+		eye = new THREE.Vector3(state.viewerPosition.x, state.viewerPosition.y, state.viewerPosition.z);
+		center = new THREE.Vector3(state.viewerTarget.x, state.viewerTarget.y, state.viewerTarget.z);
+		upVec = new THREE.Vector3(0, 1, 0);
 
-		return new THREE.Matrix4().set(
-			1, 0, 0, 0,
-			0, 1, 0, 0,
-			0, 0, 1, - 800,
-			0, 0, 0, 1 );
+		var z = new THREE.Vector3().subVectors(eye, center).normalize();
+		var x = new THREE.Vector3().crossVectors(upVec, z).normalize();
+		var y = new THREE.Vector3().crossVectors(z, x).normalize();
+		var translation = new THREE.Matrix4().makeTranslation(-eye.x, -eye.y, -eye.z);
+		var R = new THREE.Matrix4().set(
+			x.x, x.y, x.z, 0,
+			y.x, y.y, y.z, 0,
+			z.x, z.y, z.z, 0,
+			0, 0, 0, 1
+		);
+		matrix = R.multiplyMatrices(R, translation);
+		return matrix;
+
+		// return new THREE.Matrix4().set(
+		// 	1, 0, 0, 0,
+		// 	0, 1, 0, 0,
+		// 	0, 0, 1, - 800,
+		// 	0, 0, 0, 1 );
 
 	}
 
@@ -82,12 +103,17 @@ var MVPmat = function ( dispParams ) {
 		left, right, top, bottom, clipNear, clipFar ) {
 
 		/* TODO (2.3.1) Implement Perspective Projection */
-
 		return new THREE.Matrix4().set(
-			6.7, 0, 0, 0,
-			0, 6.5, 0, 0,
-			0, 0, - 1.0, - 2.0,
-			0, 0, - 1.0, 0 );
+			2 * clipNear / (right - left), 0, (right + left) / (right - left), 0,
+			0, 2 * clipNear / (top - bottom), (top + bottom) / (top - bottom), 0,
+			0, 0, - (clipFar + clipNear) / (clipFar - clipNear), - 2 * clipFar * clipNear / (clipFar - clipNear),
+			0, 0, - 1, 0);
+
+		// return new THREE.Matrix4().set(
+		// 	6.7, 0, 0, 0,
+		// 	0, 6.5, 0, 0,
+		// 	0, 0, - 1.0, - 2.0,
+		// 	0, 0, - 1.0, 0 );
 
 	}
 
@@ -103,8 +129,13 @@ var MVPmat = function ( dispParams ) {
 		left, right, top, bottom, clipNear, clipFar ) {
 
 		/* TODO (2.3.2) Implement Orthographic Projection */
+		return new THREE.Matrix4().set(
+			2 / (right - left), 0, 0, - (right + left) / (right - left),
+			0, 2 / (top - bottom), 0, - (top + bottom) / (top - bottom),
+			0, 0, - 2 / (clipFar - clipNear), - (clipFar + clipNear) / (clipFar - clipNear),
+			0, 0, 0, 1);
 
-		return new THREE.Matrix4();
+		// return new THREE.Matrix4();
 
 	}
 

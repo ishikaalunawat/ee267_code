@@ -62,10 +62,31 @@ void main() {
 
 	vColor = ambientReflection;
 
+	if (NUM_POINT_LIGHTS >= 0) {
+		
+		for ( int i = 0; i < NUM_POINT_LIGHTS; i++ ) {
+			PointLight pointLight = pointLights[i];
+			vec4 light_pos_init = (viewMat * vec4(pointLight.position, 1.0));
+			vec3 light_pos = vec3(light_pos_init.xyz)/light_pos_init.w; 
+
+			vec4 pos_init = (modelViewMat * vec4(position, 1.0));
+			vec3 pos = vec3(pos_init.xyz)/pos_init.w;
+
+			vec3 L = normalize(light_pos - pos);
+			vec3 N = normalize(normalMat * normal);
+			float max_dot = max(dot(L, N), 0.0);
+
+			float d = length(light_pos - pos);
+			float att = float(1.0 / (attenuation.x + attenuation.y * d + attenuation.z * d * d));
+			
+			vec3 diffuse = material.diffuse * pointLight.color * max_dot;
+			vColor += att*diffuse;
+		}
+	}
+
 	gl_Position =
 		projectionMat * modelViewMat * vec4( position, 1.0 );
-
-}
+		}
 ` );
 
 

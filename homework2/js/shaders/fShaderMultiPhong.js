@@ -72,9 +72,65 @@ void main() {
 	vec3 ambientReflection = material.ambient * ambientLightColor;
 
 	vec3 fColor = ambientReflection;
+	vec3 N = normalize(normalCam);
 
+	// Point light sources
+	if (NUM_POINT_LIGHTS >= 0) {
+		for ( int i = 0; i < NUM_POINT_LIGHTS; i++ ) {
+
+			// Transform to view coordinates
+			PointLight pointLight = pointLights[i];
+			vec4 light_pos_init = (viewMat * vec4(pointLight.position, 1.0));
+			vec3 light_pos = vec3(light_pos_init.xyz)/light_pos_init.w; 
+			vec3 pos = fragPosCam;
+
+			// Compute diffuse reflection
+			vec3 L = normalize(light_pos - pos);
+			vec3 N = normalize(normalCam);
+			float diff = max(dot(L, N), 0.0);
+			float d = length(light_pos - pos);
+			float att = float(1.0 / (attenuation.x + attenuation.y * d + attenuation.z * d * d));
+			
+			vec3 diffuse = material.diffuse * pointLight.color * diff;
+			fColor += att*diffuse;
+
+			// Compute specular reflection
+			vec3 V = normalize(-pos);
+			vec3 R = normalize(reflect(-L, N));
+			float spec = pow(max(dot(R, V), 0.0), material.shininess);
+
+			vec3 specular = material.specular * pointLight.color * spec;
+			fColor += att*specular;
+		}
+	}
+
+	if (NUM_DIR_LIGHTS >= 0) {
+		for ( int i = 0; i < NUM_DIR_LIGHTS; i++ ) {
+
+			// Transform to view coordinates
+			DirectionalLight dirLight = directionalLights[i];
+			vec4 light_dir_init = vec4(dirLight.direction, 1.0);
+            vec3 light_dir = vec3(light_dir_init) / light_dir_init.w;
+			vec3 pos = fragPosCam;
+
+			// Compute diffuse reflection
+			vec3 L = normalize(-light_dir);
+			vec3 N = normalize(normalCam);
+			float diff = max(dot(L, N), 0.0);
+			
+			vec3 diffuse = material.diffuse * dirLight.color * diff;
+			fColor += diffuse;
+
+			// Compute specular reflection
+			vec3 V = normalize(-pos);
+			vec3 R = normalize(reflect(-L, N));
+			float spec = pow(max(dot(R, V), 0.0), material.shininess);
+
+			vec3 specular = material.specular * dirLight.color * spec;
+			fColor += specular;
+		}
+	}
 	gl_FragColor = vec4( fColor, 1.0 );
-
 }
 ` );
 

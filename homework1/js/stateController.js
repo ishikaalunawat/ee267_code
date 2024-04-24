@@ -160,8 +160,11 @@ var StateController = function ( dispParams ) {
 	function computeMovement( x, y, previousPosition ) {
 
 		/* TODO (2.1.1.1) Mouse Movement */
-
-		return new THREE.Vector2();
+		
+		var delta_x = x - previousPosition.x;
+		var delta_y = y - previousPosition.y;
+		previousPosition.set(x, y);
+		return new THREE.Vector2(delta_x, delta_y);;
 
 	}
 
@@ -194,15 +197,19 @@ var StateController = function ( dispParams ) {
 		if ( e.shiftKey && ! ctrlKey ) {
 
 			// XY translation
+			_this.state.modelTranslation.x += movement.x;
+			_this.state.modelTranslation.y -= movement.y;
 
 		} else if ( ! e.shiftKey && ctrlKey ) {
 
 			// Z translation
-
+			_this.state.modelTranslation.z -= movement.y;
 
 		} else {
 
 			// Rotation
+			_this.state.modelRotation.y += movement.x;
+			_this.state.modelRotation.x += movement.y;
 
 		}
 
@@ -227,10 +234,13 @@ var StateController = function ( dispParams ) {
 		if ( ! ctrlKey ) {
 
 			// XY translation
+			_this.state.viewerPosition.x += movement.x
+			_this.state.viewerPosition.y -= movement.y
 
 		} else {
 
 			// Z translation
+			_this.state.viewerPosition.z -= movement.y
 
 		}
 
@@ -255,10 +265,13 @@ var StateController = function ( dispParams ) {
 		if ( ! ctrlKey ) {
 
 			// XY translation
+			_this.state.viewerTarget.x += movement.x
+			_this.state.viewerTarget.y -= movement.y
 
 		} else {
 
 			// Z translation
+			_this.state.viewerTarget.z -= movement.y
 
 		}
 
@@ -274,6 +287,10 @@ var StateController = function ( dispParams ) {
 	function updateProjectionParams( e, movement ) {
 
 		/* TODO (2.3.1) Implement Perspective Transform */
+		let unclamped_clipNear = _this.state.clipNear - movement.y;
+		let clamped_clipNear = unclamped_clipNear < 1 ? 1 : unclamped_clipNear;
+		_this.state.clipNear = clamped_clipNear;
+		console.log(`Clip is: ${_this.state.clipNear}`);
 
 	}
 
