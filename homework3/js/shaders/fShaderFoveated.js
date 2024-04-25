@@ -2,10 +2,10 @@
  * @file Fragment shader for foveated rendering
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2020/04/01
+ * @version 2022/04/14
  */
 
-/*Fragment Shader Foveation Blur */
+/* TODO (2.2.4) Fragment Shader Foveation Blur */
 
 var shaderID = "fShaderFoveated";
 
@@ -52,32 +52,35 @@ uniform float outerBlurKernel[int(outerKernelRad)*2+1];
 
 
 void main() {
-    vec2 pixelSize = 1.0/windowSize;
 
-    float distance = distance(textureCoords*windowSize, gazePosition)* pixelVA;
+	vec2 pixelSize = 1.0/windowSize;
+
+    float dist = distance(textureCoords*windowSize, gazePosition)* pixelVA;
     vec4 colour= vec4(0.0);
-    if (distance <= e1) {
+    if (dist <= e1) {
         gl_FragColor = texture2D(textureMap, textureCoords);
 
-    } else {
-        if (distance > e1 && distance <= e2) {
-            const float kSize = middleKernelRad;
-            const int max_iter =  int(kSize);
-            for (int i= int(-kSize); i <= max_iter; i++) {
-                for (int j= -int(kSize); j <= max_iter; j++)
+    } 
+	else {
+        if (dist > e1 && dist<= e2) {
+            const float k = middleKernelRad;
+            const int max_it =  int(k);
+            for (int i= int(-k); i <= max_it; i++) {
+                for (int j= -int(k); j <= max_it; j++)
                 {
-                    colour += middleBlurKernel[int(kSize)+j]*middleBlurKernel[int(kSize)+i]*texture2D(textureMap, textureCoords + vec2(pixelSize.x*float(i), pixelSize.y*float(j)));
+                    colour += middleBlurKernel[int(k)+i] * middleBlurKernel[int(k)+j] * texture2D(textureMap, textureCoords + vec2(pixelSize.x * float(i), pixelSize.y * float(j)));
 
                 }
             }
             gl_FragColor = colour;
-        } else if (distance > e2) {
-            const float kSize = outerKernelRad;
-            const int max_iter =  int(kSize);
-            for (int i= int(-kSize); i <= int(kSize); i++) {
-                for (int j= int(-kSize); j <= int(kSize); j++)
+ 		} 
+		else if (dist > e2) {
+            const float k = outerKernelRad;
+            const int max_it =  int(k);
+            for (int i= int(-k); i <= int(k); i++) {
+                for (int j= int(-k); j <= int(k); j++)
                 {
-                    colour += outerBlurKernel[int(kSize)+j]*outerBlurKernel[int(kSize)+i]*texture2D(textureMap, textureCoords+ vec2(pixelSize.x* float(i), pixelSize.y*float(j)));
+                    colour += outerBlurKernel[int(k)+i]* outerBlurKernel[int(k)+j] * texture2D(textureMap, textureCoords+ vec2(pixelSize.x * float(i), pixelSize.y * float(j)));
 
                 }
             }
@@ -85,6 +88,7 @@ void main() {
 
         }
     }
+
 }
 ` );
 
