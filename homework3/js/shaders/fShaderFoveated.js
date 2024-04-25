@@ -2,10 +2,10 @@
  * @file Fragment shader for foveated rendering
  *
  * @copyright The Board of Trustees of the Leland Stanford Junior University
- * @version 2022/04/14
+ * @version 2020/04/01
  */
 
-/* TODO (2.2.4) Fragment Shader Foveation Blur */
+/*Fragment Shader Foveation Blur */
 
 var shaderID = "fShaderFoveated";
 
@@ -52,9 +52,39 @@ uniform float outerBlurKernel[int(outerKernelRad)*2+1];
 
 
 void main() {
+    vec2 pixelSize = 1.0/windowSize;
 
-	gl_FragColor = texture2D( textureMap,  textureCoords );
+    float distance = distance(textureCoords*windowSize, gazePosition)* pixelVA;
+    vec4 colour= vec4(0.0);
+    if (distance <= e1) {
+        gl_FragColor = texture2D(textureMap, textureCoords);
 
+    } else {
+        if (distance > e1 && distance <= e2) {
+            const float kSize = middleKernelRad;
+            const int max_iter =  int(kSize);
+            for (int i= int(-kSize); i <= max_iter; i++) {
+                for (int j= -int(kSize); j <= max_iter; j++)
+                {
+                    colour += middleBlurKernel[int(kSize)+j]*middleBlurKernel[int(kSize)+i]*texture2D(textureMap, textureCoords + vec2(pixelSize.x*float(i), pixelSize.y*float(j)));
+
+                }
+            }
+            gl_FragColor = colour;
+        } else if (distance > e2) {
+            const float kSize = outerKernelRad;
+            const int max_iter =  int(kSize);
+            for (int i= int(-kSize); i <= int(kSize); i++) {
+                for (int j= int(-kSize); j <= int(kSize); j++)
+                {
+                    colour += outerBlurKernel[int(kSize)+j]*outerBlurKernel[int(kSize)+i]*texture2D(textureMap, textureCoords+ vec2(pixelSize.x* float(i), pixelSize.y*float(j)));
+
+                }
+            }
+            gl_FragColor = colour;
+
+        }
+    }
 }
 ` );
 
