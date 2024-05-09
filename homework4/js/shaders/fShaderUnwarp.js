@@ -49,6 +49,7 @@ void main() {
     } else {
         gl_FragColor = texture2D( map, xy_u );
     }
+    // Visualize center (remove later)
     // if (r_c < 0.5) {
     //     gl_FragColor = vec4( 1.0, 0.0, 0.0, 0.5 );
     // }
